@@ -166,6 +166,14 @@ export const DATE_FORMATS = [
   value: (typeof VALID_DATE_FORMAT_VALUES)[number];
 }[];
 
+/**
+ * Maps stored date formats to Luxon-compatible format tokens.
+ * Specifically converts date-fns/Java 'XXX' timezone offset tokens to Luxon's 'ZZ' token.
+ */
+export const toLuxonDateFormat = (dateFormat: string): string => {
+  return dateFormat.replace(/XXX/g, 'ZZ');
+};
+
 export const convertToLocalSystemFormat = (
   customText: string,
   dateFormat: string | null = DEFAULT_DOCUMENT_DATE_FORMAT,
@@ -174,15 +182,24 @@ export const convertToLocalSystemFormat = (
   const coalescedDateFormat = dateFormat ?? DEFAULT_DOCUMENT_DATE_FORMAT;
   const coalescedTimeZone = timeZone ?? DEFAULT_DOCUMENT_TIME_ZONE;
 
-  const parsedDate = DateTime.fromFormat(customText, coalescedDateFormat, {
+  const luxonFormat = toLuxonDateFormat(coalescedDateFormat);
+
+  let parsedDate = DateTime.fromFormat(customText, luxonFormat, {
     zone: coalescedTimeZone,
   });
+
+  if (!parsedDate.isValid && coalescedDateFormat.includes('XXX')) {
+    const legacyFormat = coalescedDateFormat.replace(/XXX/g, "'XXX'");
+    parsedDate = DateTime.fromFormat(customText, legacyFormat, {
+      zone: coalescedTimeZone,
+    });
+  }
 
   if (!parsedDate.isValid) {
     return 'Invalid date';
   }
 
-  const formattedDate = parsedDate.toLocal().toFormat(coalescedDateFormat);
+  const formattedDate = parsedDate.toLocal().toFormat(luxonFormat);
 
   return formattedDate;
 };
