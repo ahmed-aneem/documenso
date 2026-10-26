@@ -58,6 +58,7 @@ export const DATE_FORMATS = [
   {
     key: 'DDMMYYYY_DASH_TIME',
     label: 'DD-MM-YYYY HH:mm',
+    value: 'dd-MM-YYYY HH:mm',
     value: 'dd-MM-yyyy HH:mm',
   },
   {
@@ -166,6 +167,10 @@ export const DATE_FORMATS = [
   value: (typeof VALID_DATE_FORMAT_VALUES)[number];
 }[];
 
+export const toLuxonDateFormat = (dateFormat: string): string => {
+  return dateFormat.replace(/XXX/g, 'ZZ');
+};
+
 export const convertToLocalSystemFormat = (
   customText: string,
   dateFormat: string | null = DEFAULT_DOCUMENT_DATE_FORMAT,
@@ -173,16 +178,24 @@ export const convertToLocalSystemFormat = (
 ): string => {
   const coalescedDateFormat = dateFormat ?? DEFAULT_DOCUMENT_DATE_FORMAT;
   const coalescedTimeZone = timeZone ?? DEFAULT_DOCUMENT_TIME_ZONE;
+  const luxonFormat = toLuxonDateFormat(coalescedDateFormat);
 
-  const parsedDate = DateTime.fromFormat(customText, coalescedDateFormat, {
+  let parsedDate = DateTime.fromFormat(customText, luxonFormat, {
     zone: coalescedTimeZone,
   });
+
+  if (!parsedDate.isValid && coalescedDateFormat.includes('XXX')) {
+    const fallbackFormat = coalescedDateFormat.replace(/XXX/g, "'XXX'");
+    parsedDate = DateTime.fromFormat(customText, fallbackFormat, {
+      zone: coalescedTimeZone,
+    });
+  }
 
   if (!parsedDate.isValid) {
     return 'Invalid date';
   }
 
-  const formattedDate = parsedDate.toLocal().toFormat(coalescedDateFormat);
+  const formattedDate = parsedDate.toLocal().toFormat(luxonFormat);
 
   return formattedDate;
 };
