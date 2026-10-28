@@ -1,8 +1,9 @@
 import type { WebhookTriggerEvents } from '@prisma/client';
 
+import { jobs } from '@documenso/jobs/client';
+
 import { getWebhookById } from './get-webhook-by-id';
 import { generateSampleWebhookPayload } from './trigger/generate-sample-data';
-import { triggerWebhook } from './trigger/trigger-webhook';
 
 export type TriggerTestWebhookOptions = {
   id: string;
@@ -11,7 +12,12 @@ export type TriggerTestWebhookOptions = {
   teamId: number;
 };
 
-export const triggerTestWebhook = async ({ id, event, userId, teamId }: TriggerTestWebhookOptions) => {
+export const triggerTestWebhook = async ({
+  id,
+  event,
+  userId,
+  teamId,
+}: TriggerTestWebhookOptions) => {
   const webhook = await getWebhookById({ id, userId, teamId });
 
   if (!webhook.enabled) {
@@ -25,11 +31,13 @@ export const triggerTestWebhook = async ({ id, event, userId, teamId }: TriggerT
   const samplePayload = generateSampleWebhookPayload(event, webhook.webhookUrl);
 
   try {
-    await triggerWebhook({
-      event,
-      data: samplePayload.payload,
-      userId,
-      teamId,
+    await jobs.triggerJob({
+      name: 'internal.execute-webhook',
+      payload: {
+        event,
+        webhookId: webhook.id,
+        data: samplePayload.payload,
+      },
     });
 
     return { success: true, message: 'Test webhook triggered successfully' };
